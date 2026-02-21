@@ -8,8 +8,8 @@ pipeline {
 
     environment {
         // AWS Configuration
-        AWS_REGION      = 'us-east-1'
-        AWS_ACCOUNT_ID  = '123456789012' // Replace with your AWS Account ID
+        AWS_REGION      = 'ap-south-1'
+        AWS_ACCOUNT_ID  = '268271485908' // Replace with your AWS Account ID
         
         // Infrastructure Variables
         TF_VAR_db_password = credentials('rds-password') // Get DB password from Jenkins credentials
