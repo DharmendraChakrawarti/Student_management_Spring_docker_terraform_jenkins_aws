@@ -1,6 +1,14 @@
 terraform {
   required_version = ">= 1.0.0"
 
+  backend "s3" {
+    bucket         = "student-management-tf-state-268271485908" # You MUST create this bucket in S3 first
+    key            = "state/terraform.tfstate"
+    region         = "ap-south-1"
+    encrypt        = true
+    dynamodb_table = "terraform-lock" # Optional: for state locking
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
