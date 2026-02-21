@@ -1,38 +1,42 @@
-variable "vpc_id" {
-  type = string
-}
-
-variable "public_subnets" {
-  type = list(string)
-}
-
-variable "backend_sg_id" {
-  type = string
-}
-
-variable "alb_sg_id" {
-  type = string
-}
-
 resource "aws_ecs_cluster" "main" {
-  name = "student-management-cluster"
+  name = "${var.project_name}-cluster"
+
+  tags = {
+    Name = "${var.project_name}-cluster"
+  }
 }
 
 resource "aws_ecr_repository" "backend" {
-  name                 = "student-management-backend"
+  name                 = "${var.project_name}-backend"
   force_delete         = true
   image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "${var.project_name}-ecr-backend"
+  }
 }
 
 resource "aws_ecr_repository" "frontend" {
-  name                 = "student-management-frontend"
+  name                 = "${var.project_name}-frontend"
   force_delete         = true
   image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "${var.project_name}-ecr-frontend"
+  }
 }
 
 # IAM Role for ECS Task Execution
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "ecsTaskExecutionRole-student"
+  name = "${var.project_name}-ecsTaskExecutionRole"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -46,6 +50,10 @@ resource "aws_iam_role" "ecs_task_execution_role" {
       },
     ]
   })
+
+  tags = {
+    Name = "${var.project_name}-ecs-role"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
@@ -55,23 +63,35 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
 
 # Application Load Balancer
 resource "aws_lb" "main" {
-  name               = "student-alb"
+  name               = "${var.project_name}-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [var.alb_sg_id]
   subnets            = var.public_subnets
+
+  tags = {
+    Name = "${var.project_name}-alb"
+  }
 }
 
 resource "aws_lb_target_group" "frontend" {
-  name        = "frontend-tg"
+  name        = "${var.project_name}-frontend-tg"
   port        = 80
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
 
   health_check {
-    path = "/"
-    matcher = "200-399"
+    path                = "/"
+    matcher             = "200-399"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+
+  tags = {
+    Name = "${var.project_name}-frontend-tg"
   }
 }
 
@@ -84,16 +104,8 @@ resource "aws_lb_listener" "http" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.frontend.arn
   }
-}
 
-output "alb_dns_name" {
-  value = aws_lb.main.dns_name
-}
-
-output "ecr_backend_url" {
-  value = aws_ecr_repository.backend.repository_url
-}
-
-output "ecr_frontend_url" {
-  value = aws_ecr_repository.frontend.repository_url
+  tags = {
+    Name = "${var.project_name}-http-listener"
+  }
 }

@@ -1,28 +1,10 @@
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
-  type        = string
-  default     = "10.0.0.0/16"
-}
-
-variable "public_subnets" {
-  description = "Public subnets"
-  type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24"]
-}
-
-variable "availability_zones" {
-  description = "AZs"
-  type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
-}
-
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
 
   tags = {
-    Name = "student-vpc"
+    Name = "${var.project_name}-vpc"
   }
 }
 
@@ -30,7 +12,7 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "student-igw"
+    Name = "${var.project_name}-igw"
   }
 }
 
@@ -42,7 +24,7 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "student-public-subnet-${count.index + 1}"
+    Name = "${var.project_name}-public-subnet-${count.index + 1}"
   }
 }
 
@@ -55,7 +37,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "student-public-rt"
+    Name = "${var.project_name}-public-rt"
   }
 }
 
@@ -63,12 +45,4 @@ resource "aws_route_table_association" "public" {
   count          = length(var.public_subnets)
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public.id
-}
-
-output "vpc_id" {
-  value = aws_vpc.main.id
-}
-
-output "public_subnet_ids" {
-  value = aws_subnet.public[*].id
 }
