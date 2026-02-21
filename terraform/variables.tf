@@ -10,6 +10,12 @@ variable "project_name" {
   default     = "student-management"
 }
 
+variable "vpc_name" {
+  description = "Name of the VPC"
+  type        = string
+  default     = "student-vpc"
+}
+
 variable "db_password" {
   description = "Master password for the RDS instance"
   type        = string
