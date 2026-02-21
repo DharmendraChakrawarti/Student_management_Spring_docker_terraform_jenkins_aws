@@ -1,3 +1,8 @@
+// Repository: https://github.com/DharmendraChakrawarti/Student_management_Spring_docker_terraform_jenkins_aws.git
+// required Jenkins Credentials:
+// 1. 'aws-credentials' (AWS Credentials type) -> AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+// 2. 'rds-password' (Secret text type) -> Password for the RDS instance
+
 pipeline {
     agent any
 
