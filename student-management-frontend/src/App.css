@@ -1,0 +1,9 @@
+/* App.css - Kept minimal to avoid conflicts with Bootstrap and index.css */
+
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Add any specific component overrides here if needed */
