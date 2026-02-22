@@ -61,6 +61,33 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Service Discovery Namespace
+resource "aws_service_discovery_private_dns_namespace" "main" {
+  name        = "sms.local"
+  description = "Service discovery namespace for student management system"
+  vpc         = var.vpc_id
+}
+
+# Service Discovery Service for Backend
+resource "aws_service_discovery_service" "backend" {
+  name = "backend"
+
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.main.id
+
+    dns_records {
+      ttl  = 60
+      type = "A"
+    }
+
+    routing_policy = "MULTIVALUE"
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
+
 resource "aws_cloudwatch_log_group" "backend" {
   name              = "/ecs/${var.project_name}-backend"
   retention_in_days = 7
@@ -94,7 +121,7 @@ resource "aws_ecs_task_definition" "backend" {
       environment = [
         {
           name  = "SPRING_DATASOURCE_URL"
-          value = "jdbc:mysql://${var.rds_endpoint}/student_db?createDatabaseIfNotExist=true"
+          value = "jdbc:mysql://${var.rds_endpoint}/student_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true"
         },
         {
           name  = "SPRING_DATASOURCE_USERNAME"
@@ -103,6 +130,14 @@ resource "aws_ecs_task_definition" "backend" {
         {
           name  = "SPRING_DATASOURCE_PASSWORD"
           value = var.db_password
+        },
+        {
+          name  = "SPRING_DATASOURCE_DRIVER_CLASS_NAME"
+          value = "com.mysql.cj.jdbc.Driver"
+        },
+        {
+          name  = "SPRING_JPA_DATABASE_PLATFORM"
+          value = "org.hibernate.dialect.MySQL8Dialect"
         }
         // Note: Password should be handled via Secrets Manager in production, 
         // but here we keep it simple or use environment variables from Jenkins.
@@ -113,7 +148,6 @@ resource "aws_ecs_task_definition" "backend" {
           "awslogs-group"         = "/ecs/${var.project_name}-backend"
           "awslogs-region"        = "ap-south-1"
           "awslogs-stream-prefix" = "backend"
-          "awslogs-create-group"  = "true"
         }
       }
     }
@@ -132,6 +166,10 @@ resource "aws_ecs_service" "backend" {
     subnets          = var.public_subnets
     security_groups  = [var.backend_sg_id]
     assign_public_ip = true
+  }
+
+  service_registries {
+    registry_arn = aws_service_discovery_service.backend.arn
   }
 }
 
@@ -161,7 +199,6 @@ resource "aws_ecs_task_definition" "frontend" {
           "awslogs-group"         = "/ecs/${var.project_name}-frontend"
           "awslogs-region"        = "ap-south-1"
           "awslogs-stream-prefix" = "frontend"
-          "awslogs-create-group"  = "true"
         }
       }
     }
