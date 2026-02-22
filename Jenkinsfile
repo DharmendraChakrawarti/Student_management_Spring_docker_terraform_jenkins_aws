@@ -35,6 +35,36 @@ pipeline {
             }
         }
 
+        // ===== Stage: Cleanup Old State (Temporary Fix for Permissions) =====
+        stage('Terraform - Cleanup State') {
+            when {
+                expression { 
+                    return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'master' || env.GIT_BRANCH == 'master' || env.GIT_BRANCH == 'origin/master'
+                }
+            }
+            steps {
+                dir('terraform') {
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-credentials',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ]]) {
+                        sh 'terraform init'
+                        // Tell terraform to forget the resources that are causing permission errors
+                        sh 'terraform state rm module.ecs.aws_service_discovery_private_dns_namespace.main || true'
+                        sh 'terraform state rm module.ecs.aws_service_discovery_service.backend || true'
+                        sh 'terraform state rm module.ecs.aws_cloudwatch_log_group.backend || true'
+                        sh 'terraform state rm module.ecs.aws_cloudwatch_log_group.frontend || true'
+                        sh 'terraform state rm module.ecs.aws_ecs_service.frontend || true'
+                        sh 'terraform state rm module.ecs.aws_ecs_service.backend || true'
+                        sh 'terraform state rm module.ecs.aws_ecs_task_definition.frontend || true'
+                        sh 'terraform state rm module.ecs.aws_ecs_task_definition.backend || true'
+                    }
+                }
+            }
+        }
+
         // ===== Stage: Infrastructure (Terraform) =====
         stage('Terraform - Provision Infrastructure') {
             when {
