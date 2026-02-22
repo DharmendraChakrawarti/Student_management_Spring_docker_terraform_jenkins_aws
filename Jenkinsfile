@@ -49,12 +49,12 @@ pipeline {
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     ]]) {
-                        bat 'terraform init'
-                        bat 'terraform apply -auto-approve'
+                        sh 'terraform init'
+                        sh 'terraform apply -auto-approve'
                         
                         // Extract RDS Endpoint for backend
                         script {
-                            env.RDS_ENDPOINT = bat(script: 'terraform output -raw rds_endpoint', returnStdout: true).trim()
+                            env.RDS_ENDPOINT = sh(script: 'terraform output -raw rds_endpoint', returnStdout: true).trim()
                             echo "Database Endpoint: ${env.RDS_ENDPOINT}"
                         }
                     }
@@ -67,7 +67,7 @@ pipeline {
             steps {
                 echo '� Building Spring Boot backend...'
                 dir('student-management-backend') {
-                    bat 'mvn clean package -DskipTests -B'
+                    sh 'mvn clean package -DskipTests -B'
                 }
             }
         }
@@ -85,17 +85,17 @@ pipeline {
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
                     // Login to ECR
-                    bat "aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com"
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
                     
                     // Backend
-                    bat "docker build -t %ECR_BACKEND_URL%:%IMAGE_TAG% -t %ECR_BACKEND_URL%:latest ./student-management-backend"
-                    bat "docker push %ECR_BACKEND_URL%:latest"
-                    bat "docker push %ECR_BACKEND_URL%:%IMAGE_TAG%"
+                    sh "docker build -t ${ECR_BACKEND_URL}:${IMAGE_TAG} -t ${ECR_BACKEND_URL}:latest ./student-management-backend"
+                    sh "docker push ${ECR_BACKEND_URL}:latest"
+                    sh "docker push ${ECR_BACKEND_URL}:${IMAGE_TAG}"
                     
                     // Frontend
-                    bat "docker build -t %ECR_FRONTEND_URL%:%IMAGE_TAG% -t %ECR_FRONTEND_URL%:latest ./student-management-frontend"
-                    bat "docker push %ECR_FRONTEND_URL%:latest"
-                    bat "docker push %ECR_FRONTEND_URL%:%IMAGE_TAG%"
+                    sh "docker build -t ${ECR_FRONTEND_URL}:${IMAGE_TAG} -t ${ECR_FRONTEND_URL}:latest ./student-management-frontend"
+                    sh "docker push ${ECR_FRONTEND_URL}:latest"
+                    sh "docker push ${ECR_FRONTEND_URL}:${IMAGE_TAG}"
                 }
             }
         }
@@ -114,8 +114,8 @@ pipeline {
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
                     // Force deployment to trigger a new Fargate task pull
-                    bat "aws ecs update-service --cluster student-management-cluster --service student-backend-service --force-new-deployment --region %AWS_REGION%"
-                    bat "aws ecs update-service --cluster student-management-cluster --service student-frontend-service --force-new-deployment --region %AWS_REGION%"
+                    sh "aws ecs update-service --cluster student-management-cluster --service student-backend-service --force-new-deployment --region ${AWS_REGION}"
+                    sh "aws ecs update-service --cluster student-management-cluster --service student-frontend-service --force-new-deployment --region ${AWS_REGION}"
                 }
             }
         }
