@@ -1,6 +1,6 @@
-resource "aws_security_group" "alb_sg" {
-  name        = "${var.project_name}-alb-sg"
-  description = "Allow HTTP inbound traffic"
+resource "aws_security_group" "frontend_sg" {
+  name        = "${var.project_name}-frontend-sg"
+  description = "Allow HTTP inbound traffic directly to frontend"
   vpc_id      = var.vpc_id
 
   ingress {
@@ -18,7 +18,7 @@ resource "aws_security_group" "alb_sg" {
   }
 
   tags = {
-    Name = "${var.project_name}-alb-sg"
+    Name = "${var.project_name}-frontend-sg"
   }
 }
 
@@ -28,10 +28,10 @@ resource "aws_security_group" "backend_sg" {
   vpc_id      = var.vpc_id
 
   ingress {
-    from_port       = var.backend_port
-    to_port         = var.backend_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb_sg.id]
+    from_port   = var.backend_port
+    to_port     = var.backend_port
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Allowed directly for learning purpose since ALB is removed
   }
 
   egress {

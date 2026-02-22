@@ -8,10 +8,7 @@ output "rds_endpoint" {
   value       = module.rds.db_endpoint
 }
 
-output "alb_dns_name" {
-  description = "The DNS name of the load balancer"
-  value       = module.ecs.alb_dns_name
-}
+
 
 output "ecr_backend_url" {
   description = "The URL of the backend ECR repository"

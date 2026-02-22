@@ -18,7 +18,4 @@ variable "backend_sg_id" {
   type        = string
 }
 
-variable "alb_sg_id" {
-  description = "Security Group ID for ALB"
-  type        = string
-}
+
