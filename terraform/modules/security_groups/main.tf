@@ -69,3 +69,8 @@ resource "aws_security_group" "rds_sg" {
     Name = "${var.project_name}-rds-sg"
   }
 }
+
+moved {
+  from = aws_security_group.alb_sg
+  to   = aws_security_group.frontend_sg
+}
