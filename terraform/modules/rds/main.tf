@@ -12,7 +12,7 @@ resource "aws_db_instance" "mysql" {
   allocated_storage    = var.allocated_storage
   storage_type         = "gp2"
   engine               = "mysql"
-  engine_version       = "8.0.35"
+  engine_version       = "8.0"
   instance_class       = var.instance_class
   db_name              = var.db_name
   username             = var.db_username
