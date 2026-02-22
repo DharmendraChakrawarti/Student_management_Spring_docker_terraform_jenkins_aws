@@ -65,6 +65,6 @@ module "ecs" {
   public_subnets = module.vpc.public_subnet_ids
   backend_sg_id  = module.security_groups.backend_sg_id
   frontend_sg_id = module.security_groups.frontend_sg_id
-  rds_endpoint   = module.rds.rds_endpoint
+  rds_endpoint   = module.rds.db_endpoint
   db_password    = var.db_password
 }
