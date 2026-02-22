@@ -120,8 +120,7 @@ pipeline {
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
                     // Force deployment to trigger a new Fargate task pull
-                    sh "aws ecs update-service --cluster sms-project-cluster --service sms-project-backend-service --force-new-deployment --region ${AWS_REGION}"
-                    sh "aws ecs update-service --cluster sms-project-cluster --service sms-project-frontend-service --force-new-deployment --region ${AWS_REGION}"
+                    sh "aws ecs update-service --cluster sms-project-cluster --service sms-project-service --force-new-deployment --region ${AWS_REGION}"
                 }
             }
         }
