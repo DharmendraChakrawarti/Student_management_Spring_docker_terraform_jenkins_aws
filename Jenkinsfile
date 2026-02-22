@@ -36,14 +36,14 @@ pipeline {
         }
 
         // ===== Stage: Infrastructure (Terraform) =====
-        stage('Terraform - Provision Infrastructure') {
+        stage('Terraform - Destroy Infrastructure') {
             when {
                 expression { 
                     return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'master' || env.GIT_BRANCH == 'master' || env.GIT_BRANCH == 'origin/master'
                 }
             }
             steps {
-                echo '🏗️ Provisioning AWS Infrastructure with Terraform...'
+                echo '🗑️ Destroying AWS Infrastructure with Terraform...'
                 dir('terraform') {
                     withCredentials([[
                         $class: 'AmazonWebServicesCredentialsBinding',
@@ -52,13 +52,7 @@ pipeline {
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     ]]) {
                         sh 'terraform init'
-                        sh 'terraform apply -auto-approve'
-                        
-                        // Extract RDS Endpoint for backend
-                        script {
-                            env.RDS_ENDPOINT = sh(script: 'terraform output -raw rds_endpoint', returnStdout: true).trim()
-                            echo "Database Endpoint: ${env.RDS_ENDPOINT}"
-                        }
+                        sh 'terraform destroy -auto-approve'
                     }
                 }
             }
