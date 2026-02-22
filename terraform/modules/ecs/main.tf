@@ -61,7 +61,12 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Unified Task Definition (Frontend + Backend) for simplicity and to avoid Service Discovery/ALB
+# Bare minimum Log Group (no tags or retention to avoid permission errors)
+resource "aws_cloudwatch_log_group" "app" {
+  name = "/ecs/${var.project_name}-app-logs"
+}
+
+# Unified Task Definition (Frontend + Backend)
 resource "aws_ecs_task_definition" "app" {
   family                   = "${var.project_name}-app"
   network_mode             = "awsvpc"
@@ -101,8 +106,24 @@ resource "aws_ecs_task_definition" "app" {
         {
           name  = "SPRING_JPA_DATABASE_PLATFORM"
           value = "org.hibernate.dialect.MySQL8Dialect"
+        },
+        {
+          name  = "CORS_ALLOWED_ORIGINS"
+          value = "*"
+        },
+        {
+          name  = "LOG_LEVEL_APP"
+          value = "DEBUG"
         }
       ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.app.name
+          "awslogs-region"        = "ap-south-1"
+          "awslogs-stream-prefix" = "backend"
+        }
+      }
     },
     {
       name      = "frontend"
@@ -114,6 +135,14 @@ resource "aws_ecs_task_definition" "app" {
           hostPort      = 80
         }
       ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.app.name
+          "awslogs-region"        = "ap-south-1"
+          "awslogs-stream-prefix" = "frontend"
+        }
+      }
     }
   ])
 }
