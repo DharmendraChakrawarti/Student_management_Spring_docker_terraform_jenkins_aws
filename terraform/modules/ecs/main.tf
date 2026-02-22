@@ -60,3 +60,125 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
+
+resource "aws_cloudwatch_log_group" "backend" {
+  name              = "/ecs/${var.project_name}-backend"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "frontend" {
+  name              = "/ecs/${var.project_name}-frontend"
+  retention_in_days = 7
+}
+
+# Task Definition for Backend
+resource "aws_ecs_task_definition" "backend" {
+  family                   = "${var.project_name}-backend"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "${var.project_name}-backend"
+      image     = "${aws_ecr_repository.backend.repository_url}:latest"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 8080
+          hostPort      = 8080
+        }
+      ]
+      environment = [
+        {
+          name  = "SPRING_DATASOURCE_URL"
+          value = "jdbc:mysql://${var.rds_endpoint}/student_db?createDatabaseIfNotExist=true"
+        },
+        {
+          name  = "SPRING_DATASOURCE_USERNAME"
+          value = "admin"
+        },
+        {
+          name  = "SPRING_DATASOURCE_PASSWORD"
+          value = var.db_password
+        }
+        // Note: Password should be handled via Secrets Manager in production, 
+        // but here we keep it simple or use environment variables from Jenkins.
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/${var.project_name}-backend"
+          "awslogs-region"        = "ap-south-1"
+          "awslogs-stream-prefix" = "backend"
+          "awslogs-create-group"  = "true"
+        }
+      }
+    }
+  ])
+}
+
+# ECS Service for Backend
+resource "aws_ecs_service" "backend" {
+  name            = "${var.project_name}-backend-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.backend.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = var.public_subnets
+    security_groups  = [var.backend_sg_id]
+    assign_public_ip = true
+  }
+}
+
+# Task Definition for Frontend
+resource "aws_ecs_task_definition" "frontend" {
+  family                   = "${var.project_name}-frontend"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "${var.project_name}-frontend"
+      image     = "${aws_ecr_repository.frontend.repository_url}:latest"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 80
+          hostPort      = 80
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/${var.project_name}-frontend"
+          "awslogs-region"        = "ap-south-1"
+          "awslogs-stream-prefix" = "frontend"
+          "awslogs-create-group"  = "true"
+        }
+      }
+    }
+  ])
+}
+
+# ECS Service for Frontend
+resource "aws_ecs_service" "frontend" {
+  name            = "${var.project_name}-frontend-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.frontend.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = var.public_subnets
+    security_groups  = [var.frontend_sg_id]
+    assign_public_ip = true
+  }
+}

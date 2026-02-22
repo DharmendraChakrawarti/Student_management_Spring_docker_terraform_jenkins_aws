@@ -18,4 +18,18 @@ variable "backend_sg_id" {
   type        = string
 }
 
+variable "frontend_sg_id" {
+  description = "Security Group ID for Frontend ECS tasks"
+  type        = string
+}
 
+variable "rds_endpoint" {
+  description = "RDS Endpoint for backend"
+  type        = string
+}
+
+variable "db_password" {
+  description = "Database password"
+  type        = string
+  sensitive   = true
+}
