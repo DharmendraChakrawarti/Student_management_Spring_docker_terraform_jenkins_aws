@@ -38,7 +38,9 @@ pipeline {
         // ===== Stage: Infrastructure (Terraform) =====
         stage('Terraform - Provision Infrastructure') {
             when {
-                expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master' }
+                expression { 
+                    return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'master' || env.GIT_BRANCH == 'master' || env.GIT_BRANCH == 'origin/master'
+                }
             }
             steps {
                 echo '🏗️ Provisioning AWS Infrastructure with Terraform...'
@@ -74,7 +76,9 @@ pipeline {
 
         stage('Docker - Build & Push Images') {
             when {
-                expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master' }
+                expression { 
+                    return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'master' || env.GIT_BRANCH == 'master' || env.GIT_BRANCH == 'origin/master'
+                }
             }
             steps {
                 echo '� Building and Pushing Docker images...'
@@ -103,7 +107,9 @@ pipeline {
         // ===== Stage: Deployment =====
         stage('Deploy to ECS') {
             when {
-                expression { return env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master' }
+                expression { 
+                    return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'master' || env.GIT_BRANCH == 'master' || env.GIT_BRANCH == 'origin/master'
+                }
             }
             steps {
                 echo '🚀 Updating ECS Services...'
