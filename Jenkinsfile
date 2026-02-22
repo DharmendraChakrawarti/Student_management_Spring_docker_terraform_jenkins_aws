@@ -1,19 +1,49 @@
+// Repository: https://github.com/DharmendraChakrawarti/Student_management_Spring_docker_terraform_jenkins_aws.git
+// required Jenkins Credentials:
+// 1. 'aws-credentials' (AWS Credentials type) -> AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+// 2. 'rds-password' (Secret text type) -> Password for the RDS instance
+
 pipeline {
     agent any
 
     environment {
+        // AWS Configuration
         AWS_REGION      = 'ap-south-1'
-        AWS_ACCOUNT_ID  = '268271485908'
-        TF_VAR_db_password = credentials('rds-password')
+        AWS_ACCOUNT_ID  = '268271485908' // Replace with your AWS Account ID
+        
+        // Infrastructure Variables
+        TF_VAR_db_password = credentials('rds-password') // Get DB password from Jenkins credentials
+        
+        // ECS/ECR names
+        ECR_BACKEND_URL  = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/sms-project-backend"
+        ECR_FRONTEND_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/sms-project-frontend"
+        
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
 
     tools {
-        terraform 'Terraform'
+        maven 'Maven-3.9'
+        nodejs 'Node-20'
+        terraform 'Terraform' // Configure in Jenkins Global Tool Config
     }
 
     stages {
-        stage('🗑️ TOTAL AWS CLEANUP') {
+        stage('Checkout') {
             steps {
+                echo '📥 Checking out source code...'
+                checkout scm
+            }
+        }
+
+        // ===== Stage: Infrastructure (Terraform) =====
+        stage('Terraform - Provision Infrastructure') {
+            when {
+                expression { 
+                    return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'master' || env.GIT_BRANCH == 'master' || env.GIT_BRANCH == 'origin/master'
+                }
+            }
+            steps {
+                echo '🏗️ Provisioning AWS Infrastructure with Terraform...'
                 dir('terraform') {
                     withCredentials([[
                         $class: 'AmazonWebServicesCredentialsBinding',
@@ -21,29 +51,92 @@ pipeline {
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     ]]) {
-                        echo '🔥 Force cleaning orphaned ECS resources...'
-                        // Try to stop any running tasks in the cluster
-                        sh "aws ecs list-tasks --cluster sms-project-cluster --region ${AWS_REGION} --output text --query 'taskArns' | xargs -r aws ecs stop-task --cluster sms-project-cluster --region ${AWS_REGION} --task" || true
-                        
-                        // Delete the services (including the orphans we removed from state)
-                        sh "aws ecs delete-service --cluster sms-project-cluster --service sms-project-service --force --region ${AWS_REGION}" || true
-                        sh "aws ecs delete-service --cluster sms-project-cluster --service sms-project-backend-service --force --region ${AWS_REGION}" || true
-                        sh "aws ecs delete-service --cluster sms-project-cluster --service sms-project-frontend-service --force --region ${AWS_REGION}" || true
-                        
-                        echo '🧹 Running Terraform Destroy for VPC, RDS, and remaining infrastructure...'
                         sh 'terraform init'
-                        sh 'terraform destroy -auto-approve'
-
-                        echo '✅ Cleanup complete. All known resources should now be deleting.'
+                        sh 'terraform apply -auto-approve'
+                        
+                        // Extract RDS Endpoint for backend
+                        script {
+                            env.RDS_ENDPOINT = sh(script: 'terraform output -raw rds_endpoint', returnStdout: true).trim()
+                            echo "Database Endpoint: ${env.RDS_ENDPOINT}"
+                        }
                     }
                 }
             }
         }
+
+        // ===== Stage: Backend Build & Image =====
+        stage('Backend - Build Artifact') {
+            steps {
+                echo '🛠️ Building Spring Boot backend...'
+                dir('student-management-backend') {
+                    sh 'mvn clean package -DskipTests -B'
+                }
+            }
+        }
+
+        stage('Docker - Build & Push Images') {
+            when {
+                expression { 
+                    return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'master' || env.GIT_BRANCH == 'master' || env.GIT_BRANCH == 'origin/master'
+                }
+            }
+            steps {
+                echo '🐳 Building and Pushing Docker images...'
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    // Login to ECR
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+                    
+                    // Backend
+                    sh "docker build -t ${ECR_BACKEND_URL}:${IMAGE_TAG} -t ${ECR_BACKEND_URL}:latest ./student-management-backend"
+                    sh "docker push ${ECR_BACKEND_URL}:latest"
+                    sh "docker push ${ECR_BACKEND_URL}:${IMAGE_TAG}"
+                    
+                    // Frontend
+                    sh "docker build -t ${ECR_FRONTEND_URL}:${IMAGE_TAG} -t ${ECR_FRONTEND_URL}:latest ./student-management-frontend"
+                    sh "docker push ${ECR_FRONTEND_URL}:latest"
+                    sh "docker push ${ECR_FRONTEND_URL}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        // ===== Stage: Deploy to ECS =====
+        stage('Deploy to ECS') {
+            when {
+                expression { 
+                    return env.BRANCH_NAME == 'main' || env.GIT_BRANCH == 'main' || env.GIT_BRANCH == 'origin/main' || env.BRANCH_NAME == 'master' || env.GIT_BRANCH == 'master' || env.GIT_BRANCH == 'origin/master'
+                }
+            }
+            steps {
+                echo '🚀 Updating ECS Services...'
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    // Force deployment to trigger a new Fargate task pull
+                    sh "aws ecs update-service --cluster sms-project-cluster --service sms-project-service --force-new-deployment --region ${AWS_REGION}"
+                }
+            }
+        }
     }
-    
+
     post {
+        success {
+            echo '✅ Deployment successful!'
+        }
+        failure {
+            echo '❌ Pipeline failed! Please check logs.'
+        }
         always {
-            cleanWs()
+            dir('terraform') {
+                cleanWs()
+            }
         }
     }
 }
