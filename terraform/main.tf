@@ -20,14 +20,6 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-
-  default_tags {
-    tags = {
-      Project     = var.project_name
-      Environment = "Production"
-      ManagedBy   = "Terraform"
-    }
-  }
 }
 
 # Data source for Availability Zones

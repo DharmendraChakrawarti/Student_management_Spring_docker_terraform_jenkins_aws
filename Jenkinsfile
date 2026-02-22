@@ -15,8 +15,8 @@ pipeline {
         TF_VAR_db_password = credentials('rds-password') // Get DB password from Jenkins credentials
         
         // ECS/ECR names
-        ECR_BACKEND_URL  = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/student-management-backend"
-        ECR_FRONTEND_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/student-management-frontend"
+        ECR_BACKEND_URL  = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/sms-project-backend"
+        ECR_FRONTEND_URL = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/sms-project-frontend"
         
         IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
@@ -120,8 +120,8 @@ pipeline {
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
                     // Force deployment to trigger a new Fargate task pull
-                    sh "aws ecs update-service --cluster student-management-cluster --service student-management-backend-service --force-new-deployment --region ${AWS_REGION}"
-                    sh "aws ecs update-service --cluster student-management-cluster --service student-management-frontend-service --force-new-deployment --region ${AWS_REGION}"
+                    sh "aws ecs update-service --cluster sms-project-cluster --service sms-project-backend-service --force-new-deployment --region ${AWS_REGION}"
+                    sh "aws ecs update-service --cluster sms-project-cluster --service sms-project-frontend-service --force-new-deployment --region ${AWS_REGION}"
                 }
             }
         }
