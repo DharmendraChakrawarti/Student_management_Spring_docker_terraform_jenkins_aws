@@ -1,12 +1,17 @@
-import axios from "axios";
+// src/services/TeacherService.js
+import axios from 'axios';
+import { TEACHER_API_BASE } from './apiConfig';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-const BASE_URL = API_BASE + "/api/teachers";
+export const getAllTeachers = () => axios.get(TEACHER_API_BASE);
 
-// Auth headers are handled automatically by the axios interceptor in AuthService.js
+export const registerTeacher = (teacherDto) => 
+    axios.post(`${TEACHER_API_BASE}/register`, teacherDto);
 
-export const registerTeacher = (teacher) => axios.post(`${BASE_URL}/register`, teacher);
-export const getTeacherById = (id) => axios.get(`${BASE_URL}/${id}`);
-export const getAllTeachers = () => axios.get(BASE_URL);
-export const updateTeacher = (id, teacher) => axios.put(`${BASE_URL}/${id}`, teacher);
-export const deleteTeacher = (id) => axios.delete(`${BASE_URL}/${id}`);
+export const getTeacherById = (teacherId) => 
+    axios.get(`${TEACHER_API_BASE}/${teacherId}`);
+
+export const updateTeacher = (teacherId, teacherDto) => 
+    axios.put(`${TEACHER_API_BASE}/${teacherId}`, teacherDto);
+
+export const deleteTeacher = (teacherId) => 
+    axios.delete(`${TEACHER_API_BASE}/${teacherId}`);
