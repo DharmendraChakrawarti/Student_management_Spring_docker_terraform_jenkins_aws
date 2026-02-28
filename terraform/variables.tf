@@ -53,7 +53,7 @@ variable "availability_zones" {
 variable "ec2_instance_type" {
   description = "EC2 instance type (t2.micro = Free Tier)"
   type        = string
-  default     = "t2.micro"
+  default     = "t3.micro"
 }
 
 variable "ec2_key_name" {
