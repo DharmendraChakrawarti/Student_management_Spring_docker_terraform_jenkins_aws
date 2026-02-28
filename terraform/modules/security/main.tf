@@ -19,7 +19,7 @@ resource "aws_security_group" "ec2" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # In production, restrict to your IP
+    cidr_blocks = ["0.0.0.0/0"] # In production, restrict to your IP
   }
 
   # Frontend (port 3000) — Nginx serves the React app
@@ -67,7 +67,7 @@ resource "aws_security_group" "ec2" {
 # Only allows MySQL traffic FROM the EC2 security group (not the internet!)
 resource "aws_security_group" "rds" {
   name        = "${var.project_name}-${var.environment}-rds-sg"
-  description = "Security group for RDS MySQL — only accessible from EC2"
+  description = "Security group for RDS MySQL - only accessible from EC2"
   vpc_id      = var.vpc_id
 
   # MySQL access (port 3306) — ONLY from EC2 instances in our SG
@@ -76,7 +76,7 @@ resource "aws_security_group" "rds" {
     from_port       = 3306
     to_port         = 3306
     protocol        = "tcp"
-    security_groups = [aws_security_group.ec2.id]  # ← Only from EC2!
+    security_groups = [aws_security_group.ec2.id] # ← Only from EC2!
   }
 
   # Allow ALL outbound (for updates, etc.)
