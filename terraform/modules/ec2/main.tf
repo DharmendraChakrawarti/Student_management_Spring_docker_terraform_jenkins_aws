@@ -75,7 +75,7 @@ resource "aws_instance" "app_server" {
 
   # Root volume
   root_block_device {
-    volume_size = 20    # 20 GB (enough for Docker images)
+    volume_size = 30 # 30 GB (minimum required by AMI snapshot)
     volume_type = "gp3"
   }
 
