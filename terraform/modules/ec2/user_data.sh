@@ -40,6 +40,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${rds_username}
       SPRING_DATASOURCE_PASSWORD: ${rds_password}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      APP_CORS_ALLOWED_ORIGINS: "*"
     networks:
       - app-network
 
