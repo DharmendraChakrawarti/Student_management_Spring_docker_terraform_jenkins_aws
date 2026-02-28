@@ -1,0 +1,80 @@
+# =============================================================
+#  DOCKER COMPOSE — AWS RDS DEPLOYMENT
+# =============================================================
+#
+#  USE THIS FILE WHEN DEPLOYING WITH AWS RDS (instead of local MySQL)
+#
+#  HOW TO RUN:
+#    docker-compose -f docker-compose-aws.yml up --build -d
+#
+#  BEFORE RUNNING:
+#    1. Create an RDS MySQL instance in AWS Console
+#    2. Note down the endpoint, username, and password
+#    3. Set the environment variables below (or use a .env file)
+#    4. Ensure the security group allows inbound on port 3306
+#       from wherever this docker-compose runs
+#
+# =============================================================
+
+
+services:
+
+  # -------------------------------------------------------
+  # Spring Boot Backend → connects to AWS RDS
+  # -------------------------------------------------------
+  backend:
+    build:
+      context: ./student-management-backend
+      dockerfile: Dockerfile
+    container_name: student-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      # Activate the AWS Spring profile
+      SPRING_PROFILES_ACTIVE: aws
+
+      # ====================================================
+      # !! REPLACE THESE WITH YOUR ACTUAL AWS RDS VALUES !!
+      # ====================================================
+      # Option 1: Set them directly here (not recommended for production)
+      # Option 2: Use a .env file alongside this docker-compose file
+      # Option 3: Pass them via Jenkins/CI pipeline as secrets
+      # ====================================================
+      RDS_HOSTNAME: ${RDS_HOSTNAME:-your-rds-instance.xxxxxx.us-east-1.rds.amazonaws.com}
+      RDS_PORT: ${RDS_PORT:-3306}
+      RDS_DB_NAME: ${RDS_DB_NAME:-student_db}
+      RDS_USERNAME: ${RDS_USERNAME:-admin}
+      RDS_PASSWORD: ${RDS_PASSWORD:-your-rds-password}
+
+      # These override application-aws.properties directly
+      SPRING_DATASOURCE_URL: jdbc:mysql://${RDS_HOSTNAME:-your-rds-instance.xxxxxx.us-east-1.rds.amazonaws.com}:${RDS_PORT:-3306}/${RDS_DB_NAME:-student_db}?useSSL=true&requireSSL=true&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: ${RDS_USERNAME:-admin}
+      SPRING_DATASOURCE_PASSWORD: ${RDS_PASSWORD:-your-rds-password}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    networks:
+      - app-network
+
+  # -------------------------------------------------------
+  # React Frontend (Nginx)
+  # -------------------------------------------------------
+  frontend:
+    build:
+      context: ./student-management-frontend
+      dockerfile: Dockerfile
+    container_name: student-frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+# -------------------------------------------------------
+# NOTE: No MySQL container here — using AWS RDS instead!
+# -------------------------------------------------------
+
+networks:
+  app-network:
+    driver: bridge

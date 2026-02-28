@@ -3,8 +3,8 @@ import axios from 'axios';
 import { ACADEMIC_API_BASE } from './apiConfig';
 
 // Academic Years
-export const getAllYears = () => axios.get(`${ACADEMIC_API_BASE}/years`);
-export const createYear = (year) => axios.post(`${ACADEMIC_API_BASE}/years`, year);
+export const getAllAcademicYears = () => axios.get(`${ACADEMIC_API_BASE}/years`);
+export const createAcademicYear = (year) => axios.post(`${ACADEMIC_API_BASE}/years`, year);
 
 // Standards (Classes)
 export const getAllStandards = () => axios.get(`${ACADEMIC_API_BASE}/standards`);

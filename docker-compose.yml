@@ -1,53 +1,85 @@
-version: '3.8'
+
+# =============================================================
+#  DOCKER COMPOSE — LOCAL DEVELOPMENT (3 containers)
+#  Frontend (React + Nginx) → Backend (Spring Boot) → MySQL 8
+# =============================================================
 
 services:
 
+  # -------------------------------------------------------
+  # MySQL Database Container
+  # -------------------------------------------------------
   mysql:
     image: mysql:8.0
     container_name: mysql-db
     restart: always
-    command: --default-authentication-plugin=mysql_native_password
     environment:
-      MYSQL_DATABASE: student_db
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_USER: appuser
-      MYSQL_PASSWORD: app123
+      MYSQL_DATABASE: student_db         # Auto-create this database on first run
+      MYSQL_ROOT_PASSWORD: root123       # Root password (for admin access)
+      MYSQL_USER: appuser               # Application-level user
+      MYSQL_PASSWORD: app123            # Application-level password
     ports:
-      - "3306:3306"
+      - "3306:3306"                     # Expose MySQL for local tools (e.g. MySQL Workbench)
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql       # Persist data across container restarts
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -proot123 || exit 1"]
-      interval: 15s
-      timeout: 10s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
+      interval: 10s
+      timeout: 5s
       retries: 15
-      start_period: 60s
+      start_period: 30s                 # Give MySQL time to initialize
+    networks:
+      - app-network
 
+  # -------------------------------------------------------
+  # Spring Boot Backend Container
+  # -------------------------------------------------------
   backend:
     build:
       context: ./student-management-backend
+      dockerfile: Dockerfile
     container_name: student-backend
     restart: always
     ports:
       - "8080:8080"
     depends_on:
       mysql:
-        condition: service_healthy
+        condition: service_healthy      # Wait until MySQL is truly ready
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/student_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      # These env vars OVERRIDE anything in application.properties
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/student_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
       SPRING_DATASOURCE_USERNAME: appuser
       SPRING_DATASOURCE_PASSWORD: app123
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
+    networks:
+      - app-network
 
+  # -------------------------------------------------------
+  # React Frontend Container (served via Nginx)
+  # -------------------------------------------------------
   frontend:
     build:
       context: ./student-management-frontend
+      dockerfile: Dockerfile
     container_name: student-frontend
     restart: always
     ports:
-      - "80:80"
+      - "3000:80"                       # Access app at http://localhost:3000
     depends_on:
       - backend
+    networks:
+      - app-network
 
+# -------------------------------------------------------
+# Persistent Volumes
+# -------------------------------------------------------
 volumes:
   mysql_data:
+
+# -------------------------------------------------------
+# Shared Network (all containers can reach each other by service name)
+# -------------------------------------------------------
+networks:
+  app-network:
+    driver: bridge

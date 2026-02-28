@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react'
-import { createAcademicYear, createSection, createStandard, createSubject, getAllAcademicYears, getAllSections, getAllStandards, getAllSubjects } from '../services/AcademicService';
+import { 
+    createAcademicYear, 
+    createSection, 
+    createStandard, 
+    createSubject, 
+    getAllAcademicYears, 
+    getAllSections, 
+    getAllStandards, 
+    getAllSubjects 
+} from '../services/AcademicService';
 
 const AcademicManagementComponent = () => {
 
@@ -28,13 +37,12 @@ const AcademicManagementComponent = () => {
     }, [])
 
     function refreshAll() {
-        getAllAcademicYears().then(res => setYears(res.data));
-        getAllStandards().then(res => setStandards(res.data));
-        getAllSections().then(res => setSections(res.data));
-        getAllSubjects().then(res => setSubjects(res.data));
+        getAllAcademicYears().then(res => setYears(res.data)).catch(err => console.error(err));
+        getAllStandards().then(res => setStandards(res.data)).catch(err => console.error(err));
+        getAllSections().then(res => setSections(res.data)).catch(err => console.error(err));
+        getAllSubjects().then(res => setSubjects(res.data)).catch(err => console.error(err));
     }
 
-    // Handlers
     // Handlers
     function handleAddYear(e) {
         e.preventDefault();

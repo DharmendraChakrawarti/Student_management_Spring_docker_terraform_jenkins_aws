@@ -1,4 +1,5 @@
 node_modules/
-# dist/ (removed to allow local build copy)
+dist/
 .git/
 *.log
+.gitignore

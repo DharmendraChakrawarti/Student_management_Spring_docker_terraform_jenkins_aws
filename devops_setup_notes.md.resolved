@@ -1,0 +1,124 @@
+# DevOps Setup Notes — Student Management System
+
+## Summary of All Changes Made
+
+### Issues Fixed (Docker Local Setup)
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | **Duplicate SecurityConfig** — Two [SecurityConfig.java](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/student-management-backend/src/main/java/com/example/sms/config/SecurityConfig.java) files in `config/` and [security/](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/student-management-backend/src/main/java/com/example/sms/config/SecurityConfig.java#67-85) packages caused Spring Boot bean conflict | Removed the duplicate in [security/](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/student-management-backend/src/main/java/com/example/sms/config/SecurityConfig.java#67-85) package |
+| 2 | **MySQL hostname mismatch** — [application.properties](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/student-management-backend/src/main/resources/application.properties) used `mysql-db` but docker-compose service name was `mysql` | Changed to `mysql` everywhere |
+| 3 | **Credential mismatch** — Properties used `root/root` but docker-compose set `appuser/app123` | Aligned to `appuser/app123` |
+| 4 | **Deprecated Hibernate dialect** — `MySQL8Dialect` deprecated | Changed to `MySQLDialect` |
+| 5 | **Frontend build error** — `listCourses` and [getCourse](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/student-management-frontend/src/services/CourseService.js#10-11) not exported from [CourseService.js](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/student-management-frontend/src/services/CourseService.js) | Added export aliases |
+| 6 | **No Docker network** — Containers couldn't communicate | Added explicit `app-network` bridge |
+| 7 | **API URL mismatch** — Frontend tried `localhost:8080` from Docker | Changed to empty string (relative URL) + Nginx proxy |
+| 8 | **[.dockerignore](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/student-management-backend/.dockerignore) issues** — `target/` and `dist/` were not ignored | Fixed to reduce build context size |
+
+### Files Created for AWS/DevOps
+
+| File | Purpose |
+|------|---------|
+| [application-aws.properties](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/student-management-backend/src/main/resources/application-aws.properties) | Spring Boot profile for AWS RDS connection |
+| [docker-compose-aws.yml](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/docker-compose-aws.yml) | Compose file for AWS deployment (no MySQL container) |
+| [terraform/provider.tf](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/terraform/provider.tf) | AWS provider + S3 backend config (commented) |
+| [terraform/variables.tf](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/terraform/variables.tf) | All input variables with defaults |
+| [terraform/main.tf](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/terraform/main.tf) | Root module wiring (VPC → Security → ECR → RDS → EC2) |
+| [terraform/outputs.tf](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/terraform/outputs.tf) | EC2 IP, RDS endpoint, app URL |
+| [terraform/terraform.tfvars.example](file:///c:/Users/dharm/OneDrive/Desktop/full_stack/terraform/terraform.tfvars.example) | Example values |
+| `terraform/modules/vpc/` | VPC, Subnets, IGW, Route Tables |
+| `terraform/modules/security/` | EC2 and RDS Security Groups |
+| `terraform/modules/ecr/` | Docker image repositories |
+| `terraform/modules/rds/` | MySQL RDS instance |
+| `terraform/modules/ec2/` | EC2 instance with user_data.sh |
+| `Jenkinsfile` | 6-stage CI/CD pipeline |
+| `README.md` | Complete step-by-step guide |
+
+---
+
+## Terraform Module Architecture
+
+```mermaid
+graph TD
+    A[terraform/main.tf] --> B[modules/vpc]
+    A --> C[modules/security]
+    A --> D[modules/ecr]
+    A --> E[modules/rds]
+    A --> F[modules/ec2]
+    
+    B -- vpc_id --> C
+    B -- private_subnet_ids --> E
+    B -- public_subnet_ids --> F
+    C -- rds_sg_id --> E
+    C -- ec2_sg_id --> F
+    D -- ecr_urls --> F
+    E -- rds_endpoint --> F
+```
+
+## AWS Resources Created by Terraform
+
+| Resource | Type | Purpose |
+|----------|------|---------|
+| VPC | `aws_vpc` | Isolated network (10.0.0.0/16) |
+| Public Subnet 1 | `aws_subnet` | EC2 lives here (10.0.1.0/24) |
+| Public Subnet 2 | `aws_subnet` | High availability (10.0.2.0/24) |
+| Private Subnet 1 | `aws_subnet` | RDS lives here (10.0.10.0/24) |
+| Private Subnet 2 | `aws_subnet` | RDS failover (10.0.11.0/24) |
+| Internet Gateway | `aws_internet_gateway` | Public internet access |
+| Route Table | `aws_route_table` | Routes public traffic to IGW |
+| EC2 Security Group | `aws_security_group` | SSH + ports 80, 3000, 8080 |
+| RDS Security Group | `aws_security_group` | MySQL 3306 (from EC2 only) |
+| ECR Backend | `aws_ecr_repository` | Docker image for Spring Boot |
+| ECR Frontend | `aws_ecr_repository` | Docker image for React/Nginx |
+| RDS MySQL | `aws_db_instance` | Managed MySQL database |
+| EC2 Instance | `aws_instance` | App server running Docker |
+| IAM Role | `aws_iam_role` | EC2 → ECR access |
+| Instance Profile | `aws_iam_instance_profile` | Attaches IAM role to EC2 |
+
+## Jenkins Pipeline Stages
+
+```
+Stage 1: Checkout      → Pull code from GitHub
+Stage 2: AWS Setup     → Get AWS Account ID
+Stage 3: Terraform     → terraform init/plan/apply
+Stage 4: Build         → mvn package + npm build (parallel)
+Stage 5: Docker Push   → Build & push images to ECR
+Stage 6: Deploy to EC2 → SSH in, pull images, restart containers
+```
+
+## Required Jenkins Credentials
+
+| ID | Type | Description |
+|----|------|-------------|
+| `aws-credentials` | AWS Credentials | IAM user Access Key + Secret |
+| `rds-password` | Secret text | RDS master password |
+| `ec2-ssh-key` | SSH Private Key | EC2 .pem key file |
+
+## How Data Flows in Production
+
+```
+Browser → http://EC2_IP:3000
+  → Nginx (frontend container)
+    → /api/* → proxy_pass → Backend container :8080
+      → Spring Boot → JDBC → RDS MySQL (private subnet)
+    → /* → React SPA (index.html)
+```
+
+## Important Commands
+
+```bash
+# Local: start all 3 containers
+docker compose up --build -d
+
+# Local: stop everything
+docker compose down -v
+
+# Terraform: deploy infrastructure
+cd terraform && terraform init && terraform apply
+
+# Terraform: destroy everything (avoid charges!)
+cd terraform && terraform destroy
+
+# Push to ECR manually
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com
+```
