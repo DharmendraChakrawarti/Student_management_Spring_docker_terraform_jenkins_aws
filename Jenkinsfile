@@ -213,32 +213,34 @@ pipeline {
                     [$class: 'AmazonWebServicesCredentialsBinding',
                      credentialsId: 'aws-credentials',
                      accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
+                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'],
+                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key',
+                                     keyFileVariable: 'SSH_KEY_FILE',
+                                     usernameVariable: 'SSH_USER')
                 ]) {
-                    sshagent(['ec2-ssh-key']) {
-                        echo "🚀 Deploying to EC2 at ${env.EC2_IP}..."
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ec2-user@${env.EC2_IP} << 'DEPLOY_SCRIPT'
-                                # Login to ECR
-                                aws ecr get-login-password --region ${AWS_REGION} | \\
-                                  docker login --username AWS --password-stdin \\
-                                  ${env.AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                    echo "🚀 Deploying to EC2 at ${env.EC2_IP}..."
+                    sh """
+                        chmod 400 \$SSH_KEY_FILE
+                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY_FILE ec2-user@${env.EC2_IP} << 'DEPLOY_SCRIPT'
+                            # Login to ECR
+                            aws ecr get-login-password --region ${AWS_REGION} | \\
+                              docker login --username AWS --password-stdin \\
+                              ${env.AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
-                                # Pull latest images
-                                cd /home/ec2-user/app
-                                docker-compose pull
+                            # Pull latest images
+                            cd /home/ec2-user/app
+                            docker-compose pull
 
-                                # Restart containers with new images
-                                docker-compose down
-                                docker-compose up -d
+                            # Restart containers with new images
+                            docker-compose down
+                            docker-compose up -d
 
-                                # Clean up old images
-                                docker image prune -f
+                            # Clean up old images
+                            docker image prune -f
 
-                                echo "✅ App deployed successfully!"
+                            echo "✅ App deployed successfully!"
 DEPLOY_SCRIPT
-                        """
-                    }
+                    """
                 }
             }
         }
