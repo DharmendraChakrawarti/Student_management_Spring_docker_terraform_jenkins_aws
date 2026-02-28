@@ -46,8 +46,6 @@ pipeline {
     environment {
         AWS_REGION      = 'ap-south-1'
         PROJECT_NAME    = 'student-mgmt'
-        ECR_BACKEND     = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-backend"
-        ECR_FRONTEND    = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-frontend"
     }
 
     // ---------------------------------------------------------
