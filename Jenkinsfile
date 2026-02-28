@@ -122,7 +122,7 @@ pipeline {
                         sh """
                             terraform plan \
                               -var="db_password=${DB_PASSWORD}" \
-                              -var="ec2_key_name=student-mgmt-key" \
+                              -var="ec2_key_name=my-key-pair" \
                               -out=tfplan
                         """
 
